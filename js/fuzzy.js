@@ -1,9 +1,18 @@
-// Normalize Russian text: lowercase, strip punctuation
+// Latin → Cyrillic homoglyph map (letters that look identical but have different Unicode)
+const HOMOGLYPHS = {
+  'a': 'а', 'e': 'е', 'o': 'о', 'p': 'р', 'c': 'с', 'x': 'х', 'y': 'у',
+  'A': 'А', 'B': 'В', 'E': 'Е', 'K': 'К', 'M': 'М', 'H': 'Н', 'O': 'О',
+  'P': 'Р', 'C': 'С', 'T': 'Т', 'X': 'Х', 'Y': 'У',
+};
+const HOMOGLYPH_RE = new RegExp(`[${Object.keys(HOMOGLYPHS).join('')}]`, 'g');
+
+// Normalize Russian text: fix homoglyphs, lowercase, strip punctuation, ё→е
 export function normalize(text) {
   return text
+    .replace(HOMOGLYPH_RE, ch => HOMOGLYPHS[ch])
     .toLowerCase()
-    .replace(/[.,!?;:«»"'–—\-]/g, '')
-    .replace(/ё/g, 'е') // treat ё and е as same
+    .replace(/[.,!?;:«»"'–—\-…]/g, '')
+    .replace(/ё/g, 'е')
     .trim();
 }
 
@@ -27,7 +36,6 @@ export function wordMatches(spoken, expected) {
   const e = normalize(expected);
   if (!s || !e) return false;
   if (s === e) return true;
-  // Allow 1 edit for short words, 2 for longer
   const maxDist = e.length <= 4 ? 1 : 2;
   return levenshtein(s, e) <= maxDist;
 }

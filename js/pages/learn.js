@@ -139,7 +139,7 @@ function startLearn({ id, section, lines, sectionName, startLine, track }) {
         const hasCyrillic = /[\u0400-\u04FF]/.test(checkText);
         if (!hasCyrillic && !final) return;
         const score = scoreMatch(checkText, lines[lineIndex]);
-        if (score >= 0.75) {
+        if (score >= 0.6) {
           accepted = true;
           successes++;
           document.getElementById('success-dots').innerHTML = Array.from({ length: REQUIRED_SUCCESSES })
@@ -163,9 +163,8 @@ function startLearn({ id, section, lines, sectionName, startLine, track }) {
             setTimeout(() => { accepted = false; }, 300);
           }
         } else if (final) {
-          // Only show failure on final (don't penalise mid-word interim)
           stopListening();
-          showFeedback('Try again — speak the whole line clearly', 'warn');
+          showFeedback(`Try again — got ${Math.round(score * 100)}% match`, 'warn');
           speak(lines[lineIndex]);
         }
       },
