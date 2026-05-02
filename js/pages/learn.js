@@ -1,0 +1,166 @@
+import { db } from '../firebase.js';
+import { navigate } from '../router.js';
+import { setHeader } from '../app.js';
+import { createRecognizer, speak, ensureVoices } from '../speech.js';
+import { scoreMatch, alignWords, normalize } from '../fuzzy.js';
+
+const REQUIRED_SUCCESSES = 2;
+
+export async function renderLearn({ id, section }) {
+  const doc = await db.collection('items').doc(id).get();
+  if (!doc.exists) { navigate('/'); return; }
+  const item = { id: doc.id, ...doc.data() };
+
+  // Build lines array for this section
+  let lines;
+  if (section === 'all') {
+    lines = item.sections.flatMap(s => s.lines);
+  } else {
+    lines = item.sections[parseInt(section)]?.lines || [];
+  }
+
+  const sectionName = section === 'all'
+    ? `Full ${item.type === 'poem' ? 'poem' : 'song'}`
+    : item.sections[parseInt(section)]?.name;
+
+  setHeader({ title: `📖 ${item.title}`, back: `/item/${id}` });
+  await ensureVoices();
+
+  let lineIndex = 0;
+  let successes = 0;
+  let recognizer = null;
+  let listening = false;
+
+  const page = document.getElementById('page');
+  page.innerHTML = `
+    <div class="learn-container">
+      <div class="section-label">${sectionName}</div>
+      <div class="progress-bar-wrap"><div class="progress-bar" id="progress-bar"></div></div>
+      <div class="line-display" id="line-display"></div>
+      <div class="word-row" id="word-row"></div>
+      <div class="success-dots" id="success-dots"></div>
+      <div class="transcript-box" id="transcript-box"></div>
+      <div class="learn-controls">
+        <button class="ctrl-btn" id="btn-listen" title="Listen to line">🔊</button>
+        <button class="ctrl-btn primary" id="btn-mic" title="Start speaking">🎤 Speak</button>
+        <button class="ctrl-btn" id="btn-skip" title="Skip line">⏭</button>
+      </div>
+      <div id="feedback-msg" class="feedback-msg"></div>
+    </div>`;
+
+  function renderLine() {
+    const line = lines[lineIndex];
+    const words = line.split(/\s+/);
+    const progress = lineIndex / lines.length;
+
+    document.getElementById('progress-bar').style.width = `${progress * 100}%`;
+
+    document.getElementById('line-display').textContent = line;
+
+    document.getElementById('word-row').innerHTML = words
+      .map((w, i) => `<span class="word" data-index="${i}">${w}</span>`)
+      .join(' ');
+
+    document.getElementById('success-dots').innerHTML = Array.from({ length: REQUIRED_SUCCESSES })
+      .map((_, i) => `<span class="dot ${i < successes ? 'filled' : ''}"></span>`)
+      .join('');
+
+    document.getElementById('transcript-box').textContent = '';
+    document.getElementById('feedback-msg').textContent = '';
+    stopListening();
+  }
+
+  function updateWordHighlights(spokenText) {
+    const line = lines[lineIndex];
+    const words = line.split(/\s+/);
+    const matched = alignWords(spokenText, words);
+    document.querySelectorAll('#word-row .word').forEach((el, i) => {
+      el.classList.toggle('green', matched[i] === true);
+    });
+  }
+
+  function stopListening() {
+    listening = false;
+    if (recognizer) { try { recognizer.stop(); } catch(_) {} recognizer = null; }
+    const btn = document.getElementById('btn-mic');
+    if (btn) { btn.textContent = '🎤 Speak'; btn.classList.remove('recording'); }
+  }
+
+  function startListening() {
+    if (listening) { stopListening(); return; }
+    recognizer = createRecognizer({
+      onResult({ final, interim }) {
+        const text = final || interim;
+        document.getElementById('transcript-box').textContent = text;
+        updateWordHighlights(text);
+
+        if (final) {
+          const score = scoreMatch(final, lines[lineIndex]);
+          if (score >= 0.75) {
+            successes++;
+            document.getElementById('success-dots').innerHTML = Array.from({ length: REQUIRED_SUCCESSES })
+              .map((_, i) => `<span class="dot ${i < successes ? 'filled' : ''}"></span>`)
+              .join('');
+            stopListening();
+
+            if (successes >= REQUIRED_SUCCESSES) {
+              showFeedback('✅ Great!', 'success');
+              setTimeout(() => {
+                lineIndex++;
+                successes = 0;
+                if (lineIndex >= lines.length) {
+                  showComplete();
+                } else {
+                  renderLine();
+                }
+              }, 900);
+            } else {
+              showFeedback(`👍 Once more! (${successes}/${REQUIRED_SUCCESSES})`, 'info');
+            }
+          } else {
+            stopListening();
+            showFeedback('Try again — speak the whole line clearly', 'warn');
+            speak(lines[lineIndex]);
+          }
+        }
+      },
+      onEnd() { stopListening(); }
+    });
+    if (!recognizer) { showFeedback('Speech recognition not supported in this browser', 'warn'); return; }
+    listening = true;
+    recognizer.start();
+    const btn = document.getElementById('btn-mic');
+    btn.textContent = '⏹ Stop'; btn.classList.add('recording');
+  }
+
+  function showFeedback(msg, type = 'info') {
+    const el = document.getElementById('feedback-msg');
+    el.textContent = msg;
+    el.className = `feedback-msg feedback-${type}`;
+  }
+
+  function showComplete() {
+    stopListening();
+    page.innerHTML = `
+      <div class="complete-screen">
+        <div class="complete-star">⭐</div>
+        <h2>Section complete!</h2>
+        <p>You've finished <strong>${sectionName}</strong></p>
+        <button class="btn-primary" id="btn-again">Do it again</button>
+        <button class="btn-secondary" id="btn-home">Back to songs</button>
+      </div>`;
+    document.getElementById('btn-again').addEventListener('click', () => renderLearn({ id, section }));
+    document.getElementById('btn-home').addEventListener('click', () => navigate(`/item/${id}`));
+  }
+
+  renderLine();
+
+  document.getElementById('btn-listen').addEventListener('click', () => speak(lines[lineIndex]));
+  document.getElementById('btn-mic').addEventListener('click', startListening);
+  document.getElementById('btn-skip').addEventListener('click', () => {
+    stopListening();
+    successes = 0;
+    lineIndex = Math.min(lineIndex + 1, lines.length - 1);
+    renderLine();
+  });
+}
