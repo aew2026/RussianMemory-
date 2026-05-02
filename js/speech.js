@@ -17,23 +17,12 @@ export function createRecognizer({ onResult, onEnd, continuous = false }) {
   rec.continuous = continuous;
   rec.maxAlternatives = 1;
 
-  let lastFinalIndex = 0;
-
   rec.onresult = (e) => {
-    // Process each NEW final result exactly once
-    for (let i = lastFinalIndex; i < e.results.length; i++) {
-      if (e.results[i].isFinal) {
-        const transcript = e.results[i][0].transcript;
-        console.log('[speech] final:', JSON.stringify(transcript));
-        onResult({ final: transcript, interim: '' });
-        lastFinalIndex = i + 1;
-      }
-    }
-    // Show latest interim
-    const last = e.results[e.results.length - 1];
-    if (!last.isFinal) {
-      onResult({ final: '', interim: last[0].transcript });
-    }
+    const results = Array.from(e.results);
+    // Join ALL finalized segments — callers use this growing string to advance from their own cursor
+    const final = results.filter(r => r.isFinal).map(r => r[0].transcript).join(' ');
+    const interim = results.filter(r => !r.isFinal).map(r => r[0].transcript).join(' ');
+    onResult({ final, interim });
   };
 
   rec.onend = () => onEnd && onEnd();
