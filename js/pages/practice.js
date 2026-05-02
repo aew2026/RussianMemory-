@@ -1,7 +1,7 @@
 import { db } from '../firebase.js';
 import { navigate } from '../router.js';
 import { setHeader } from '../app.js';
-import { createRecognizer, ensureVoices } from '../speech.js';
+import { createRecognizer, ensureVoices, warmMic } from '../speech.js';
 import { normalize, wordMatches } from '../fuzzy.js';
 import { getProgress, saveProgress } from '../progress.js';
 
@@ -22,7 +22,7 @@ export async function renderPractice({ id, section }) {
     : item.sections[parseInt(section)]?.name;
 
   setHeader({ title: `🎤 ${item.title}`, back: `/item/${id}` });
-  await ensureVoices();
+  await Promise.all([ensureVoices(), warmMic()]);
 
   const allWords = lines.flatMap((line, li) =>
     line.split(/\s+/).filter(Boolean).map((w, wi) => ({ word: w, lineIndex: li, wordIndex: wi }))

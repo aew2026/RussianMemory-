@@ -1,7 +1,7 @@
 import { db } from '../firebase.js';
 import { navigate } from '../router.js';
 import { setHeader } from '../app.js';
-import { createRecognizer, speak, ensureVoices } from '../speech.js';
+import { createRecognizer, speak, ensureVoices, warmMic } from '../speech.js';
 import { scoreMatch, alignWords } from '../fuzzy.js';
 import { getProgress, saveProgress } from '../progress.js';
 
@@ -24,7 +24,7 @@ export async function renderLearn({ id, section }) {
     : item.sections[parseInt(section)]?.name;
 
   setHeader({ title: `📖 ${item.title}`, back: `/item/${id}` });
-  await ensureVoices();
+  await Promise.all([ensureVoices(), warmMic()]);
 
   const saved = await getProgress(id, section);
   const savedLine = saved?.learnValue ?? 0;

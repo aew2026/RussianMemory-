@@ -1,3 +1,14 @@
+// Request mic permission once and hold the stream so the browser doesn't re-prompt
+let _micStream = null;
+export async function warmMic() {
+  if (_micStream) return;
+  try {
+    _micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (e) {
+    console.warn('Mic permission denied:', e);
+  }
+}
+
 // Speech recognition wrapper (Web Speech API, ru-RU)
 export function createRecognizer({ onResult, onEnd, continuous = false }) {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
