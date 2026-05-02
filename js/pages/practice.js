@@ -137,24 +137,23 @@ function startPractice({ id, section, lines, sectionName, allWords, startWord, t
 
   function processSpoken(text) {
     if (!text.trim()) return;
-    // Skip English phonetic interims — only process Cyrillic text
     if (!/[\u0400-\u04FF]/.test(text)) return;
-    document.getElementById('transcript-box').textContent = text;
 
     const spokenWords = normalize(text).split(/\s+/).filter(Boolean);
-    let si = 0;
+    let ei = nextExpected;
 
-    for (si = 0; si < spokenWords.length && nextExpected < allWords.length; si++) {
-      const expected = allWords[nextExpected];
-      if (wordMatches(spokenWords[si], expected.word)) {
-        revealWord(nextExpected);
-        nextExpected++;
-        if (track) saveProgress(id, section, 'practice', nextExpected, allWords.length);
-      } else {
-        flashError(expected.lineIndex);
-        showFeedback(`Hmm — check line ${expected.lineIndex + 1}`, 'warn');
-        break;
+    // Walk spoken words; advance expected pointer on match, silently skip on mismatch
+    for (let si = 0; si < spokenWords.length && ei < allWords.length; si++) {
+      if (wordMatches(spokenWords[si], allWords[ei].word)) {
+        revealWord(ei);
+        ei++;
       }
+      // No match → skip this spoken word and try the next one against the same expected word
+    }
+
+    if (ei > nextExpected) {
+      nextExpected = ei;
+      if (track) saveProgress(id, section, 'practice', nextExpected, allWords.length);
     }
 
     if (nextExpected >= allWords.length) {
