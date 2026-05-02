@@ -141,14 +141,15 @@ function startPractice({ id, section, lines, sectionName, allWords, startWord, t
 
     const spokenWords = normalize(text).split(/\s+/).filter(Boolean);
     let ei = nextExpected;
+    console.log('[practice] processSpoken ei='+ei, JSON.stringify(spokenWords), '| next expected:', JSON.stringify(allWords[ei]?.word));
 
-    // Walk spoken words; advance expected pointer on match, silently skip on mismatch
     for (let si = 0; si < spokenWords.length && ei < allWords.length; si++) {
-      if (wordMatches(spokenWords[si], allWords[ei].word)) {
+      const match = wordMatches(spokenWords[si], allWords[ei].word);
+      console.log('[practice]   spoken['+si+']='+spokenWords[si]+' vs expected['+ei+']='+allWords[ei].word+' → '+match);
+      if (match) {
         revealWord(ei);
         ei++;
       }
-      // No match → skip this spoken word and try the next one against the same expected word
     }
 
     if (ei > nextExpected) {
