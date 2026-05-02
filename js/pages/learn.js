@@ -125,8 +125,9 @@ function startLearn({ id, section, lines, sectionName, startLine, track }) {
 
   function startListening() {
     if (listening) { stopListening(); return; }
-    let accepted = false; // prevent double-firing from interim + final
+    let accepted = false;
     recognizer = createRecognizer({
+      continuous: true,
       onResult({ final, interim }) {
         const text = final || interim;
         document.getElementById('transcript-box').textContent = text;

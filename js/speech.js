@@ -20,10 +20,14 @@ export function createRecognizer({ onResult, onEnd, continuous = false }) {
   rec.maxAlternatives = 3;
 
   rec.onresult = (e) => {
-    const results = Array.from(e.results);
-    const final = results.filter(r => r.isFinal).map(r => r[0].transcript).join(' ');
-    const interim = results.filter(r => !r.isFinal).map(r => r[0].transcript).join(' ');
-    onResult({ final, interim, raw: e });
+    // Only look at the result that just changed — e.resultIndex tells us which one
+    const result = e.results[e.resultIndex];
+    const transcript = result[0].transcript;
+    if (result.isFinal) {
+      onResult({ final: transcript, interim: '' });
+    } else {
+      onResult({ final: '', interim: transcript });
+    }
   };
 
   rec.onend = () => onEnd && onEnd();
