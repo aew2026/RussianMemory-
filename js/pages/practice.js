@@ -168,8 +168,9 @@ function startPractice({ id, section, lines, sectionName, allWords, startWord, t
     recognizer = createRecognizer({
       continuous: true,
       onResult({ final, interim }) {
-        // Process interim immediately for word reveals; final cleans up any remainder
-        processSpoken(final || interim);
+        // Show interim live in transcript but only commit words on final
+        document.getElementById('transcript-box').textContent = final || interim;
+        if (final) processSpoken(final);
       },
       onEnd() { stopListening(); }
     });
