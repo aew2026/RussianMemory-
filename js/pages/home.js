@@ -3,7 +3,7 @@ import { navigate } from '../router.js';
 import { setHeader } from '../app.js';
 
 export async function renderHome() {
-  setHeader({ title: '🎵 Russian Memory', back: null });
+  setHeader({ title: 'EmMem', back: null });
   const page = document.getElementById('page');
   page.innerHTML = `<div class="loading">Loading…</div>`;
 
