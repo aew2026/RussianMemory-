@@ -166,8 +166,8 @@ function startPractice({ id, section, lines, sectionName, allWords, startWord, t
     recognizer = createRecognizer({
       continuous: true,
       onResult({ final, interim }) {
-        if (final) processSpoken(final);
-        else document.getElementById('transcript-box').textContent = interim;
+        // Process interim immediately for word reveals; final cleans up any remainder
+        processSpoken(final || interim);
       },
       onEnd() { stopListening(); }
     });

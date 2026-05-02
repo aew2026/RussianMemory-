@@ -125,38 +125,46 @@ function startLearn({ id, section, lines, sectionName, startLine, track }) {
 
   function startListening() {
     if (listening) { stopListening(); return; }
+    let accepted = false; // prevent double-firing from interim + final
     recognizer = createRecognizer({
       onResult({ final, interim }) {
         const text = final || interim;
         document.getElementById('transcript-box').textContent = text;
         updateWordHighlights(text);
-        if (final) {
-          const score = scoreMatch(final, lines[lineIndex]);
-          if (score >= 0.75) {
-            successes++;
-            document.getElementById('success-dots').innerHTML = Array.from({ length: REQUIRED_SUCCESSES })
-              .map((_, i) => `<span class="dot ${i < successes ? 'filled' : ''}"></span>`).join('');
-            stopListening();
-            if (successes >= REQUIRED_SUCCESSES) {
-              showFeedback('✅ Great!', 'success');
-              setTimeout(async () => {
-                lineIndex++;
-                successes = 0;
-                if (track) await saveProgress(id, section, 'learn', lineIndex, lines.length);
-                if (lineIndex >= lines.length) {
-                  showComplete();
-                } else {
-                  renderLine();
-                }
-              }, 900);
-            } else {
-              showFeedback(`👍 Once more! (${successes}/${REQUIRED_SUCCESSES})`, 'info');
-            }
+
+        if (accepted) return;
+
+        // Act on interim if score is already high enough — no need to wait for final
+        const checkText = final || interim;
+        const score = scoreMatch(checkText, lines[lineIndex]);
+        if (score >= 0.75) {
+          accepted = true;
+          successes++;
+          document.getElementById('success-dots').innerHTML = Array.from({ length: REQUIRED_SUCCESSES })
+            .map((_, i) => `<span class="dot ${i < successes ? 'filled' : ''}"></span>`).join('');
+          stopListening();
+          if (successes >= REQUIRED_SUCCESSES) {
+            showFeedback('✅ Great!', 'success');
+            setTimeout(async () => {
+              accepted = false;
+              lineIndex++;
+              successes = 0;
+              if (track) await saveProgress(id, section, 'learn', lineIndex, lines.length);
+              if (lineIndex >= lines.length) {
+                showComplete();
+              } else {
+                renderLine();
+              }
+            }, 700);
           } else {
-            stopListening();
-            showFeedback('Try again — speak the whole line clearly', 'warn');
-            speak(lines[lineIndex]);
+            showFeedback(`👍 Once more! (${successes}/${REQUIRED_SUCCESSES})`, 'info');
+            setTimeout(() => { accepted = false; }, 300);
           }
+        } else if (final) {
+          // Only show failure on final (don't penalise mid-word interim)
+          stopListening();
+          showFeedback('Try again — speak the whole line clearly', 'warn');
+          speak(lines[lineIndex]);
         }
       },
       onEnd() { stopListening(); }
