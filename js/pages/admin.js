@@ -54,7 +54,9 @@ export async function renderAdmin() {
             </div>
           </li>`).join('')}
       </ul>
-      <div id="editor-panel" class="editor-panel hidden"></div>
+    </div>
+    <div id="editor-overlay" class="editor-overlay hidden">
+      <div id="editor-panel" class="editor-panel"></div>
     </div>`;
 
   document.getElementById('btn-new').addEventListener('click', () => openEditor(null));
@@ -76,12 +78,18 @@ export async function renderAdmin() {
 }
 
 function openEditor(item) {
+  const overlay = document.getElementById('editor-overlay');
   const panel = document.getElementById('editor-panel');
-  panel.classList.remove('hidden');
-  panel.scrollIntoView({ behavior: 'smooth' });
+  overlay.classList.remove('hidden');
+  document.body.classList.add('no-scroll');
 
   const isNew = !item;
   const sections = item?.sections ? JSON.parse(JSON.stringify(item.sections)) : [{ name: 'Stanza 1', lines: [''] }];
+
+  function closeEditor() {
+    document.getElementById('editor-overlay').classList.add('hidden');
+    document.body.classList.remove('no-scroll');
+  }
 
   function renderEditor() {
     panel.innerHTML = `
@@ -141,9 +149,7 @@ function openEditor(item) {
     });
 
     document.getElementById('btn-save').addEventListener('click', () => saveItem());
-    document.getElementById('btn-cancel').addEventListener('click', () => {
-      panel.classList.add('hidden');
-    });
+    document.getElementById('btn-cancel').addEventListener('click', closeEditor);
   }
 
   function renderSection(s, si) {
@@ -197,7 +203,7 @@ function openEditor(item) {
     } else {
       await db.collection('items').doc(item.id).set(data);
     }
-    panel.classList.add('hidden');
+    closeEditor();
     renderAdmin();
   }
 

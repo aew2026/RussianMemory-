@@ -206,6 +206,21 @@ html, body {
 .complete-screen p { color: var(--muted); font-size: 1.1rem; }
 
 /* ── Admin ── */
+.no-scroll { overflow: hidden; }
+
+.editor-overlay {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(0,0,0,0.45);
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 16px;
+  overflow-y: auto;
+}
+.editor-overlay .editor-panel {
+  width: 100%; max-width: 620px;
+  margin: auto;
+  max-height: none;
+}
+
 .admin-login { max-width: 340px; margin: 60px auto; display: flex; flex-direction: column; gap: 14px; }
 .admin-login h2 { text-align: center; }
 .admin-container { display: flex; flex-direction: column; gap: 20px; }
