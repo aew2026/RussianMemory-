@@ -168,24 +168,19 @@ function startPractice({ id, section, lines, sectionName, allWords, startWord, t
     const btn = document.getElementById('btn-mic');
     btn.textContent = '⏹ Stop'; btn.classList.add('recording');
 
-    function spawnRec() {
-      if (!listening) return;
-      recognizer = createRecognizer({
-        continuous: false,
-        onResult({ final, interim }) {
-          document.getElementById('transcript-box').textContent = final || interim;
-          if (final) processSpoken(final);
-        },
-        onEnd() {
-          recognizer = null;
-          if (listening) setTimeout(spawnRec, 150); // auto-restart for next utterance
-        }
-      });
-      if (!recognizer) { showFeedback('Speech recognition not supported in this browser', 'warn'); listening = false; return; }
-      try { recognizer.start(); } catch(e) { if (listening) setTimeout(spawnRec, 300); }
-    }
-
-    spawnRec();
+    recognizer = createRecognizer({
+      continuous: true,
+      onResult({ final, interim }) {
+        document.getElementById('transcript-box').textContent = final || interim;
+        if (final) processSpoken(final);
+      },
+      onEnd() {
+        recognizer = null;
+        stopListening();
+      }
+    });
+    if (!recognizer) { showFeedback('Speech recognition not supported in this browser', 'warn'); listening = false; return; }
+    try { recognizer.start(); } catch(e) { showFeedback('Could not start microphone', 'warn'); listening = false; }
   }
 
   function showFeedback(msg, type = 'info') {
