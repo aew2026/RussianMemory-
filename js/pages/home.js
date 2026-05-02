@@ -30,7 +30,7 @@ export async function renderHome() {
               <span class="item-icon">${item.type === 'poem' ? '📜' : '🎵'}</span>
               <div class="item-info">
                 <span class="item-title">${item.title}</span>
-                <span class="item-meta">${item.sections?.length || 0} ${item.type === 'poem' ? 'stanzas' : 'sections'}</span>
+                <span class="item-meta">${item.sections?.length || 0} parts</span>
               </div>
               <span class="item-arrow">›</span>
             </div>

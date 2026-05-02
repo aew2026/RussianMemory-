@@ -112,7 +112,7 @@ function openEditor(item) {
   document.body.classList.add('no-scroll');
 
   const isNew = !item;
-  const sections = item?.sections ? JSON.parse(JSON.stringify(item.sections)) : [{ name: 'Stanza 1', lines: [''] }];
+  const sections = item?.sections ? JSON.parse(JSON.stringify(item.sections)) : [{ name: 'Part 1', lines: [''] }];
 
   function closeEditor() {
     document.getElementById('editor-overlay').classList.add('hidden');
@@ -135,7 +135,7 @@ function openEditor(item) {
         <details class="paste-block" ${sections[0]?.lines[0] ? '' : 'open'}>
           <summary>📋 Paste full text to auto-split</summary>
           <div class="paste-inner">
-            <p class="paste-hint">Separate stanzas/sections with a blank line. Each line becomes one line.</p>
+            <p class="paste-hint">Separate parts with a blank line. Each line becomes one line.</p>
             <textarea id="paste-area" class="text-input paste-area" placeholder="Paste your text here…"></textarea>
             <button class="btn-secondary" id="btn-split">↕ Split into lines</button>
           </div>
@@ -180,7 +180,7 @@ function openEditor(item) {
 
     document.getElementById('btn-add-section').addEventListener('click', () => {
       syncSections();
-      sections.push({ name: `Stanza ${sections.length + 1}`, lines: [''] });
+      sections.push({ name: `Part ${sections.length + 1}`, lines: [''] });
       renderEditor();
     });
 
@@ -191,7 +191,7 @@ function openEditor(item) {
       sections.length = 0;
       stanzas.forEach((stanza, i) => {
         const lines = stanza.split('\n').map(l => l.trim()).filter(Boolean);
-        sections.push({ name: `Stanza ${i + 1}`, lines });
+        sections.push({ name: `Part ${i + 1}`, lines });
       });
       renderEditor();
     });
