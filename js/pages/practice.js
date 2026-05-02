@@ -137,6 +137,8 @@ function startPractice({ id, section, lines, sectionName, allWords, startWord, t
 
   function processSpoken(text) {
     if (!text.trim()) return;
+    // Skip English phonetic interims — only process Cyrillic text
+    if (!/[\u0400-\u04FF]/.test(text)) return;
     document.getElementById('transcript-box').textContent = text;
 
     const spokenWords = normalize(text).split(/\s+/).filter(Boolean);

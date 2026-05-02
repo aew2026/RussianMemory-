@@ -134,8 +134,10 @@ function startLearn({ id, section, lines, sectionName, startLine, track }) {
 
         if (accepted) return;
 
-        // Act on interim if score is already high enough — no need to wait for final
+        // Only score text that contains Cyrillic — interim can be English phonetics
         const checkText = final || interim;
+        const hasCyrillic = /[\u0400-\u04FF]/.test(checkText);
+        if (!hasCyrillic && !final) return;
         const score = scoreMatch(checkText, lines[lineIndex]);
         if (score >= 0.75) {
           accepted = true;
