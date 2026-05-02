@@ -1,8 +1,12 @@
-let _micStream = null;
+let _micWarmed = false;
 export async function warmMic() {
-  if (_micStream) return;
+  if (_micWarmed) return;
   try {
-    _micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    // Release immediately — just needed to trigger the permission grant.
+    // Holding the stream open blocks SpeechRecognition on iOS.
+    stream.getTracks().forEach(t => t.stop());
+    _micWarmed = true;
   } catch (e) {
     console.warn('Mic permission denied:', e);
   }
