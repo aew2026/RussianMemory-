@@ -3,6 +3,7 @@ import { navigate } from '../router.js';
 import { setHeader } from '../app.js';
 import { createRecognizer, ensureVoices } from '../speech.js';
 import { normalize, wordMatches } from '../fuzzy.js';
+import { getProgress, saveProgress } from '../progress.js';
 
 export async function renderPractice({ id, section }) {
   const doc = await db.collection('items').doc(id).get();
@@ -23,19 +24,60 @@ export async function renderPractice({ id, section }) {
   setHeader({ title: `🎤 ${item.title}`, back: `/item/${id}` });
   await ensureVoices();
 
-  // Flatten all words with their line index
   const allWords = lines.flatMap((line, li) =>
     line.split(/\s+/).filter(Boolean).map((w, wi) => ({ word: w, lineIndex: li, wordIndex: wi }))
   );
 
-  let nextExpected = 0; // index into allWords
+  const saved = await getProgress(id, section);
+  const savedWord = saved?.practiceValue ?? 0;
+
+  if (savedWord > 0 && savedWord < allWords.length) {
+    const resume = await showPracticeResumePrompt(sectionName, savedWord, allWords.length);
+    startPractice({ id, section, lines, sectionName, allWords, startWord: resume.startWord, track: resume.track });
+    return;
+  }
+
+  startPractice({ id, section, lines, sectionName, allWords, startWord: 0, track: true });
+}
+
+function showPracticeResumePrompt(sectionName, savedWord, total) {
+  return new Promise(resolve => {
+    const page = document.getElementById('page');
+    page.innerHTML = `
+      <div class="resume-screen">
+        <div class="resume-icon">🎤</div>
+        <h2>Welcome back!</h2>
+        <p>Last time you reached <strong>word ${savedWord} of ${total}</strong> in <em>${sectionName}</em>.</p>
+        <div class="resume-progress-wrap">
+          <div class="resume-progress-bar" style="width:${(savedWord/total)*100}%"></div>
+        </div>
+        <div class="resume-actions">
+          <button class="btn-primary" id="btn-continue">▶ Continue from word ${savedWord}</button>
+          <button class="btn-secondary" id="btn-restart">↺ Start from beginning</button>
+        </div>
+        <label class="no-track-label">
+          <input type="checkbox" id="no-track" />
+          Don't save progress this session
+        </label>
+      </div>`;
+    document.getElementById('btn-continue').addEventListener('click', () => {
+      resolve({ startWord: savedWord, track: !document.getElementById('no-track').checked });
+    });
+    document.getElementById('btn-restart').addEventListener('click', () => {
+      resolve({ startWord: 0, track: !document.getElementById('no-track').checked });
+    });
+  });
+}
+
+function startPractice({ id, section, lines, sectionName, allWords, startWord, track }) {
+  let nextExpected = startWord;
   let recognizer = null;
   let listening = false;
 
   const page = document.getElementById('page');
   page.innerHTML = `
     <div class="practice-container">
-      <div class="section-label">${sectionName}</div>
+      <div class="section-label">${sectionName}${!track ? ' · <span class="no-track-badge">not tracking</span>' : ''}</div>
       <div class="progress-bar-wrap"><div class="progress-bar" id="progress-bar"></div></div>
       <div class="blurred-text" id="blurred-text"></div>
       <div class="practice-controls">
@@ -52,9 +94,12 @@ export async function renderPractice({ id, section }) {
       <div class="practice-line" data-line="${li}">
         ${line.split(/\s+/).filter(Boolean).map((w, wi) => {
           const globalIdx = allWords.findIndex(a => a.lineIndex === li && a.wordIndex === wi);
-          return `<span class="pword blurred" data-global="${globalIdx}">${w}</span>`;
+          const alreadyRevealed = globalIdx < nextExpected;
+          return `<span class="pword ${alreadyRevealed ? 'revealed' : 'blurred'}" data-global="${globalIdx}">${w}</span>`;
         }).join(' ')}
       </div>`).join('');
+    document.getElementById('progress-bar').style.width =
+      `${(nextExpected / allWords.length) * 100}%`;
   }
 
   function revealWord(globalIdx) {
@@ -102,8 +147,8 @@ export async function renderPractice({ id, section }) {
       if (wordMatches(spokenWords[si], expected.word)) {
         revealWord(nextExpected);
         nextExpected++;
+        if (track) saveProgress(id, section, 'practice', nextExpected, allWords.length);
       } else {
-        // Wrong word — show the line that's failing
         flashError(expected.lineIndex);
         showFeedback(`Hmm — check line ${expected.lineIndex + 1}`, 'warn');
         break;

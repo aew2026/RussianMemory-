@@ -1,6 +1,7 @@
 import { db } from '../firebase.js';
 import { navigate } from '../router.js';
 import { setHeader } from '../app.js';
+import { getAllProgress } from '../progress.js';
 
 export async function renderHome() {
   setHeader({ title: 'EmMem', back: null });
@@ -49,6 +50,23 @@ export async function renderItemDetail({ id }) {
 
   setHeader({ title: item.title, back: '/' });
   const page = document.getElementById('page');
+  page.innerHTML = `<div class="loading">Loading…</div>`;
+
+  const allProgress = await getAllProgress();
+
+  const totalLines = item.sections.reduce((a, s) => a + s.lines.length, 0);
+
+  function progressBadge(itemId, sectionKey, totalForSection) {
+    const p = allProgress[`${itemId}_${sectionKey}`];
+    if (!p) return '';
+    const parts = [];
+    if (p.learnValue != null)
+      parts.push(`📖 ${Math.min(p.learnValue, p.learnTotal || totalForSection)}/${p.learnTotal || totalForSection} lines`);
+    if (p.practiceValue != null)
+      parts.push(`🎤 ${Math.min(p.practiceValue, p.practiceTotal || totalForSection)}/${p.practiceTotal || totalForSection} words`);
+    if (!parts.length) return '';
+    return `<div class="progress-badge">${parts.join(' &nbsp;·&nbsp; ')}</div>`;
+  }
 
   page.innerHTML = `
     <div class="item-detail">
@@ -60,12 +78,18 @@ export async function renderItemDetail({ id }) {
       <ul class="section-list">
         ${item.sections.map((s, i) => `
           <li class="section-card" data-index="${i}">
-            <span class="section-name">${s.name}</span>
-            <span class="section-lines">${s.lines.length} lines</span>
+            <div class="section-card-main">
+              <span class="section-name">${s.name}</span>
+              <span class="section-lines">${s.lines.length} lines</span>
+            </div>
+            ${progressBadge(id, i, s.lines.length)}
           </li>`).join('')}
         <li class="section-card section-all" data-index="all">
-          <span class="section-name">⭐ Full ${item.type === 'poem' ? 'poem' : 'song'}</span>
-          <span class="section-lines">${item.sections.reduce((a,s)=>a+s.lines.length,0)} lines</span>
+          <div class="section-card-main">
+            <span class="section-name">⭐ Full ${item.type === 'poem' ? 'poem' : 'song'}</span>
+            <span class="section-lines">${totalLines} lines</span>
+          </div>
+          ${progressBadge(id, 'all', totalLines)}
         </li>
       </ul>
     </div>`;
@@ -81,8 +105,7 @@ export async function renderItemDetail({ id }) {
 
   page.querySelectorAll('.section-card').forEach(card => {
     card.addEventListener('click', () => {
-      const section = card.dataset.index;
-      navigate(`/${mode}/${id}/${section}`);
+      navigate(`/${mode}/${id}/${card.dataset.index}`);
     });
   });
 }

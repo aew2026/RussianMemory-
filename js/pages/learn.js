@@ -2,7 +2,8 @@ import { db } from '../firebase.js';
 import { navigate } from '../router.js';
 import { setHeader } from '../app.js';
 import { createRecognizer, speak, ensureVoices } from '../speech.js';
-import { scoreMatch, alignWords, normalize } from '../fuzzy.js';
+import { scoreMatch, alignWords } from '../fuzzy.js';
+import { getProgress, saveProgress } from '../progress.js';
 
 const REQUIRED_SUCCESSES = 2;
 
@@ -11,7 +12,6 @@ export async function renderLearn({ id, section }) {
   if (!doc.exists) { navigate('/'); return; }
   const item = { id: doc.id, ...doc.data() };
 
-  // Build lines array for this section
   let lines;
   if (section === 'all') {
     lines = item.sections.flatMap(s => s.lines);
@@ -26,7 +26,54 @@ export async function renderLearn({ id, section }) {
   setHeader({ title: `📖 ${item.title}`, back: `/item/${id}` });
   await ensureVoices();
 
-  let lineIndex = 0;
+  const saved = await getProgress(id, section);
+  const savedLine = saved?.learnValue ?? 0;
+
+  // Show resume prompt if there's meaningful saved progress
+  if (savedLine > 0 && savedLine < lines.length) {
+    await showResumePrompt(id, section, item, lines, sectionName, savedLine);
+    return;
+  }
+
+  startLearn({ id, section, lines, sectionName, startLine: 0, track: true });
+}
+
+function showResumePrompt(id, section, item, lines, sectionName, savedLine) {
+  return new Promise(resolve => {
+    const page = document.getElementById('page');
+    page.innerHTML = `
+      <div class="resume-screen">
+        <div class="resume-icon">📖</div>
+        <h2>Welcome back!</h2>
+        <p>Last time you reached <strong>line ${savedLine} of ${lines.length}</strong> in <em>${sectionName}</em>.</p>
+        <div class="resume-progress-wrap">
+          <div class="resume-progress-bar" style="width:${(savedLine/lines.length)*100}%"></div>
+        </div>
+        <div class="resume-actions">
+          <button class="btn-primary" id="btn-continue">▶ Continue from line ${savedLine}</button>
+          <button class="btn-secondary" id="btn-restart">↺ Start from beginning</button>
+        </div>
+        <label class="no-track-label">
+          <input type="checkbox" id="no-track" />
+          Don't save progress this session
+        </label>
+      </div>`;
+
+    document.getElementById('btn-continue').addEventListener('click', () => {
+      const track = !document.getElementById('no-track').checked;
+      resolve();
+      startLearn({ id, section, lines, sectionName, startLine: savedLine, track });
+    });
+    document.getElementById('btn-restart').addEventListener('click', () => {
+      const track = !document.getElementById('no-track').checked;
+      resolve();
+      startLearn({ id, section, lines, sectionName, startLine: 0, track });
+    });
+  });
+}
+
+function startLearn({ id, section, lines, sectionName, startLine, track }) {
+  let lineIndex = startLine;
   let successes = 0;
   let recognizer = null;
   let listening = false;
@@ -34,7 +81,7 @@ export async function renderLearn({ id, section }) {
   const page = document.getElementById('page');
   page.innerHTML = `
     <div class="learn-container">
-      <div class="section-label">${sectionName}</div>
+      <div class="section-label">${sectionName}${!track ? ' · <span class="no-track-badge">not tracking</span>' : ''}</div>
       <div class="progress-bar-wrap"><div class="progress-bar" id="progress-bar"></div></div>
       <div class="line-display" id="line-display"></div>
       <div class="word-row" id="word-row"></div>
@@ -51,29 +98,19 @@ export async function renderLearn({ id, section }) {
   function renderLine() {
     const line = lines[lineIndex];
     const words = line.split(/\s+/);
-    const progress = lineIndex / lines.length;
-
-    document.getElementById('progress-bar').style.width = `${progress * 100}%`;
-
+    document.getElementById('progress-bar').style.width = `${(lineIndex / lines.length) * 100}%`;
     document.getElementById('line-display').textContent = line;
-
     document.getElementById('word-row').innerHTML = words
-      .map((w, i) => `<span class="word" data-index="${i}">${w}</span>`)
-      .join(' ');
-
+      .map((w, i) => `<span class="word" data-index="${i}">${w}</span>`).join(' ');
     document.getElementById('success-dots').innerHTML = Array.from({ length: REQUIRED_SUCCESSES })
-      .map((_, i) => `<span class="dot ${i < successes ? 'filled' : ''}"></span>`)
-      .join('');
-
+      .map((_, i) => `<span class="dot ${i < successes ? 'filled' : ''}"></span>`).join('');
     document.getElementById('transcript-box').textContent = '';
     document.getElementById('feedback-msg').textContent = '';
     stopListening();
   }
 
   function updateWordHighlights(spokenText) {
-    const line = lines[lineIndex];
-    const words = line.split(/\s+/);
-    const matched = alignWords(spokenText, words);
+    const matched = alignWords(spokenText, lines[lineIndex].split(/\s+/));
     document.querySelectorAll('#word-row .word').forEach((el, i) => {
       el.classList.toggle('green', matched[i] === true);
     });
@@ -93,21 +130,19 @@ export async function renderLearn({ id, section }) {
         const text = final || interim;
         document.getElementById('transcript-box').textContent = text;
         updateWordHighlights(text);
-
         if (final) {
           const score = scoreMatch(final, lines[lineIndex]);
           if (score >= 0.75) {
             successes++;
             document.getElementById('success-dots').innerHTML = Array.from({ length: REQUIRED_SUCCESSES })
-              .map((_, i) => `<span class="dot ${i < successes ? 'filled' : ''}"></span>`)
-              .join('');
+              .map((_, i) => `<span class="dot ${i < successes ? 'filled' : ''}"></span>`).join('');
             stopListening();
-
             if (successes >= REQUIRED_SUCCESSES) {
               showFeedback('✅ Great!', 'success');
-              setTimeout(() => {
+              setTimeout(async () => {
                 lineIndex++;
                 successes = 0;
+                if (track) await saveProgress(id, section, 'learn', lineIndex, lines.length);
                 if (lineIndex >= lines.length) {
                   showComplete();
                 } else {
@@ -154,12 +189,10 @@ export async function renderLearn({ id, section }) {
   }
 
   renderLine();
-
   document.getElementById('btn-listen').addEventListener('click', () => speak(lines[lineIndex]));
   document.getElementById('btn-mic').addEventListener('click', startListening);
   document.getElementById('btn-skip').addEventListener('click', () => {
-    stopListening();
-    successes = 0;
+    stopListening(); successes = 0;
     lineIndex = Math.min(lineIndex + 1, lines.length - 1);
     renderLine();
   });

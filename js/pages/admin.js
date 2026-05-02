@@ -1,6 +1,7 @@
 import { db } from '../firebase.js';
 import { navigate } from '../router.js';
 import { setHeader } from '../app.js';
+import { resetAllProgress, resetProgress, getAllProgress } from '../progress.js';
 
 const ADMIN_PASSWORD = 'russian123'; // Change this to whatever you like
 
@@ -39,16 +40,26 @@ export async function renderAdmin() {
   const snap = await db.collection('items').orderBy('title').get();
   const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
+  const allProgress = await getAllProgress();
+
+  function progressSummary(itemId) {
+    const keys = Object.keys(allProgress).filter(k => k.startsWith(`${itemId}_`));
+    if (!keys.length) return '';
+    return `<span class="progress-summary">📊 has progress</span>`;
+  }
+
   page.innerHTML = `
     <div class="admin-container">
       <div class="admin-toolbar">
         <button class="btn-primary" id="btn-new">+ New Song / Poem</button>
+        <button class="btn-sm btn-danger" id="btn-reset-all">🗑 Reset all progress</button>
       </div>
       <ul class="admin-list" id="admin-list">
         ${items.map(item => `
           <li class="admin-item" data-id="${item.id}">
-            <span>${item.type === 'poem' ? '📜' : '🎵'} ${item.title}</span>
+            <span>${item.type === 'poem' ? '📜' : '🎵'} ${item.title} ${progressSummary(item.id)}</span>
             <div class="admin-item-actions">
+              <button class="btn-sm btn-warn" data-action="reset-progress" data-id="${item.id}" title="Reset progress">↺</button>
               <button class="btn-sm" data-action="edit" data-id="${item.id}">Edit</button>
               <button class="btn-sm btn-danger" data-action="delete" data-id="${item.id}">Delete</button>
             </div>
@@ -74,6 +85,23 @@ export async function renderAdmin() {
       await db.collection('items').doc(btn.dataset.id).delete();
       renderAdmin();
     });
+  });
+
+  page.querySelectorAll('[data-action="reset-progress"]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('Reset all progress for this item?')) return;
+      await resetAllProgress(btn.dataset.id);
+      renderAdmin();
+    });
+  });
+
+  document.getElementById('btn-reset-all').addEventListener('click', async () => {
+    if (!confirm('Reset ALL progress for every item? This cannot be undone.')) return;
+    const snap = await db.collection('progress').get();
+    const batch = db.batch();
+    snap.docs.forEach(d => batch.delete(d.ref));
+    await batch.commit();
+    renderAdmin();
   });
 }
 
