@@ -164,20 +164,28 @@ function startPractice({ id, section, lines, sectionName, allWords, startWord, t
 
   function startListening() {
     if (listening) { stopListening(); return; }
-    recognizer = createRecognizer({
-      continuous: true,
-      onResult({ final, interim }) {
-        // Show interim live in transcript but only commit words on final
-        document.getElementById('transcript-box').textContent = final || interim;
-        if (final) processSpoken(final);
-      },
-      onEnd() { stopListening(); }
-    });
-    if (!recognizer) { showFeedback('Speech recognition not supported in this browser', 'warn'); return; }
     listening = true;
-    recognizer.start();
     const btn = document.getElementById('btn-mic');
     btn.textContent = '⏹ Stop'; btn.classList.add('recording');
+
+    function spawnRec() {
+      if (!listening) return;
+      recognizer = createRecognizer({
+        continuous: false,
+        onResult({ final, interim }) {
+          document.getElementById('transcript-box').textContent = final || interim;
+          if (final) processSpoken(final);
+        },
+        onEnd() {
+          recognizer = null;
+          if (listening) setTimeout(spawnRec, 150); // auto-restart for next utterance
+        }
+      });
+      if (!recognizer) { showFeedback('Speech recognition not supported in this browser', 'warn'); listening = false; return; }
+      try { recognizer.start(); } catch(e) { if (listening) setTimeout(spawnRec, 300); }
+    }
+
+    spawnRec();
   }
 
   function showFeedback(msg, type = 'info') {
