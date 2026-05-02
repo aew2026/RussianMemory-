@@ -104,6 +104,14 @@ function openEditor(item) {
             <option value="poem" ${item?.type === 'poem' ? 'selected' : ''}>📜 Poem</option>
           </select>
         </label>
+        <details class="paste-block" ${sections[0]?.lines[0] ? '' : 'open'}>
+          <summary>📋 Paste full text to auto-split</summary>
+          <div class="paste-inner">
+            <p class="paste-hint">Separate stanzas/sections with a blank line. Each line becomes one line.</p>
+            <textarea id="paste-area" class="text-input paste-area" placeholder="Paste your text here…"></textarea>
+            <button class="btn-secondary" id="btn-split">↕ Split into lines</button>
+          </div>
+        </details>
         <div id="sections-editor">
           ${sections.map((s, si) => renderSection(s, si)).join('')}
         </div>
@@ -145,6 +153,18 @@ function openEditor(item) {
     document.getElementById('btn-add-section').addEventListener('click', () => {
       syncSections();
       sections.push({ name: `Stanza ${sections.length + 1}`, lines: [''] });
+      renderEditor();
+    });
+
+    document.getElementById('btn-split').addEventListener('click', () => {
+      const raw = document.getElementById('paste-area').value.trim();
+      if (!raw) return;
+      const stanzas = raw.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean);
+      sections.length = 0;
+      stanzas.forEach((stanza, i) => {
+        const lines = stanza.split('\n').map(l => l.trim()).filter(Boolean);
+        sections.push({ name: `Stanza ${i + 1}`, lines });
+      });
       renderEditor();
     });
 

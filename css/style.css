@@ -236,6 +236,11 @@ html, body {
 .editor { display: flex; flex-direction: column; gap: 14px; }
 .editor h3 { font-size: 1.2rem; }
 .editor-actions { display: flex; gap: 10px; }
+.paste-block { border: 1.5px dashed var(--border); border-radius: 10px; padding: 10px 14px; }
+.paste-block summary { cursor: pointer; font-weight: 600; color: var(--primary); }
+.paste-inner { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.paste-hint { font-size: 0.82rem; color: var(--muted); }
+.paste-area { min-height: 140px; resize: vertical; font-family: inherit; }
 .section-editor { background: #faf6f0; border-radius: 10px; padding: 14px; margin-bottom: 10px; border: 1px solid var(--border); }
 .section-header { display: flex; gap: 8px; margin-bottom: 10px; }
 .section-name-input { flex: 1; }
