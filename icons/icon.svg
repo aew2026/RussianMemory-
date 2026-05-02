@@ -1,5 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="80" fill="#e05c2a"/>
-  <text x="256" y="320" font-family="system-ui, sans-serif" font-size="220" font-weight="700"
-        text-anchor="middle" fill="white">Em</text>
+  <!-- Background -->
+  <rect width="512" height="512" rx="80" fill="#7c4dbe"/>
+
+  <!-- Paper -->
+  <rect x="110" y="80" width="260" height="340" rx="18" fill="white" opacity="0.97"/>
+
+  <!-- Folded corner -->
+  <polygon points="310,80 370,80 370,140" fill="#ddd0f5"/>
+  <polygon points="310,80 370,140 310,140" fill="#ede5fa"/>
+
+  <!-- Lyric lines -->
+  <rect x="145" y="155" width="160" height="14" rx="7" fill="#c084fc"/>
+  <rect x="145" y="190" width="190" height="14" rx="7" fill="#ddd0f5"/>
+  <rect x="145" y="225" width="140" height="14" rx="7" fill="#ddd0f5"/>
+  <rect x="145" y="270" width="170" height="14" rx="7" fill="#c084fc"/>
+  <rect x="145" y="305" width="190" height="14" rx="7" fill="#ddd0f5"/>
+  <rect x="145" y="340" width="120" height="14" rx="7" fill="#ddd0f5"/>
+
+  <!-- Music note -->
+  <ellipse cx="355" cy="385" rx="22" ry="16" fill="#7c4dbe"/>
+  <rect x="375" y="310" width="12" height="77" rx="6" fill="#7c4dbe"/>
+  <rect x="375" y="310" width="44" height="12" rx="6" fill="#7c4dbe"/>
 </svg>
