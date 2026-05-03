@@ -178,8 +178,9 @@ function startPractice({ id, section, lines, sectionName, allWords, startWord, t
         continuous: true,
         onResult({ final, interim }) {
           gotResult = true;
-          document.getElementById('transcript-box').textContent = final || interim;
-          if (final) processSpoken(final);
+          const text = (final + ' ' + interim).trim();
+          document.getElementById('transcript-box').textContent = text;
+          if (text) processSpoken(text);
         },
         onEnd() {
           recognizer = null;
