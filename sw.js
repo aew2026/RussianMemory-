@@ -1,4 +1,4 @@
-const CACHE = 'emmem-v1';
+const CACHE = 'emmem-v2';
 const PRECACHE = [
   '/',
   '/index.html',
@@ -32,12 +32,18 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  // Network-first for Firebase, cache-first for app shell
   if (e.request.url.includes('firebase') || e.request.url.includes('gstatic')) {
     e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
     return;
   }
+  // Network-first: always fetch fresh content, fall back to cache when offline
   e.respondWith(
-    caches.match(e.request).then(cached => cached || fetch(e.request))
+    fetch(e.request)
+      .then(response => {
+        const clone = response.clone();
+        caches.open(CACHE).then(c => c.put(e.request, clone));
+        return response;
+      })
+      .catch(() => caches.match(e.request))
   );
 });

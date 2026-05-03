@@ -50,6 +50,12 @@ export function speak(text, { rate = 0.85, onEnd } = {}) {
   window.speechSynthesis.speak(utt);
 }
 
+// Returns true when running as an iOS homescreen app (standalone PWA).
+// SpeechRecognition doesn't work in that context — open in Safari or Chrome instead.
+export function isIosStandalone() {
+  return !!window.navigator.standalone;
+}
+
 export function ensureVoices() {
   return new Promise(resolve => {
     const voices = window.speechSynthesis.getVoices();
