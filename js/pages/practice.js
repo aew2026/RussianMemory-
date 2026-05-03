@@ -172,17 +172,26 @@ function startPractice({ id, section, lines, sectionName, allWords, startWord, t
 
     function spawnRec() {
       if (!listening) return;
+      let gotResult = false;
+      const startedAt = Date.now();
       recognizer = createRecognizer({
         continuous: true,
         onResult({ final, interim }) {
+          gotResult = true;
           document.getElementById('transcript-box').textContent = final || interim;
           if (final) processSpoken(final);
         },
         onEnd() {
           recognizer = null;
-          // Mobile browsers stop recognition after each utterance — restart automatically
-          if (listening) setTimeout(spawnRec, 150);
-          else stopListening();
+          if (!listening) { stopListening(); return; }
+          // If the session ended immediately with no result, iOS has blocked auto-restart.
+          // Reset the button so the user can tap to continue manually.
+          if (!gotResult && Date.now() - startedAt < 600) {
+            stopListening();
+            showFeedback('Tap mic to continue', 'info');
+          } else {
+            setTimeout(spawnRec, 150);
+          }
         }
       });
       if (!recognizer) { showFeedback('Speech recognition not supported in this browser', 'warn'); listening = false; return; }
