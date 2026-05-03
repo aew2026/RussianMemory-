@@ -101,6 +101,7 @@ html, body {
 .progress-bar-wrap { height: 6px; background: var(--border); border-radius: 3px; margin-bottom: 20px; overflow: hidden; }
 .progress-bar { height: 100%; background: var(--primary); border-radius: 3px; transition: width .4s; }
 .section-label { font-size: 0.85rem; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: .05em; }
+.line-counter { font-size: 0.8rem; color: var(--muted); margin-bottom: 6px; }
 
 /* ── Home ── */
 .item-list { list-style: none; display: flex; flex-direction: column; gap: 12px; }

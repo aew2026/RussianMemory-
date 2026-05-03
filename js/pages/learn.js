@@ -84,6 +84,7 @@ function startLearn({ id, section, lines, sectionName, startLine, track }) {
     <div class="learn-container">
       <div class="section-label">${sectionName}${!track ? ' · <span class="no-track-badge">not tracking</span>' : ''}</div>
       <div class="progress-bar-wrap"><div class="progress-bar" id="progress-bar"></div></div>
+      <div class="line-counter" id="line-counter"></div>
       <div class="line-display" id="line-display"></div>
       <div class="word-row" id="word-row"></div>
       <div class="success-dots" id="success-dots"></div>
@@ -100,6 +101,7 @@ function startLearn({ id, section, lines, sectionName, startLine, track }) {
     const line = lines[lineIndex];
     const words = line.split(/\s+/);
     document.getElementById('progress-bar').style.width = `${(lineIndex / lines.length) * 100}%`;
+    document.getElementById('line-counter').textContent = `line ${lineIndex + 1} of ${lines.length}`;
     document.getElementById('line-display').textContent = line;
     document.getElementById('word-row').innerHTML = words
       .map((w, i) => `<span class="word" data-index="${i}">${w}</span>`).join(' ');

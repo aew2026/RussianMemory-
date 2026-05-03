@@ -72,8 +72,8 @@ export async function renderItemDetail({ id }) {
     <div class="item-detail">
       <p class="subtitle">Choose a section and mode</p>
       <div class="mode-selector">
-        <button class="mode-btn active" data-mode="learn">📖 Learn It</button>
-        <button class="mode-btn" data-mode="practice">🎤 Practice</button>
+        <button class="mode-btn active" data-mode="practice">🎤 Practice</button>
+        <button class="mode-btn" data-mode="learn">📖 Learn It</button>
       </div>
       <ul class="section-list">
         ${item.sections.map((s, i) => `
@@ -94,7 +94,7 @@ export async function renderItemDetail({ id }) {
       </ul>
     </div>`;
 
-  let mode = 'learn';
+  let mode = 'practice';
   page.querySelectorAll('.mode-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       page.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
