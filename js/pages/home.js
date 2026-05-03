@@ -73,6 +73,7 @@ export async function renderItemDetail({ id }) {
       <p class="subtitle">Choose a section and mode</p>
       <div class="mode-selector">
         <button class="mode-btn active" data-mode="practice">🎤 Practice</button>
+        <button class="mode-btn" data-mode="practice-silent">👁 No mic</button>
         <button class="mode-btn" data-mode="learn">📖 Learn It</button>
       </div>
       <ul class="section-list">

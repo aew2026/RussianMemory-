@@ -2,6 +2,7 @@ import { route, startRouter, navigate } from './router.js';
 import { renderHome, renderItemDetail } from './pages/home.js';
 import { renderLearn } from './pages/learn.js';
 import { renderPractice } from './pages/practice.js';
+import { renderPracticeSilent } from './pages/practice-silent.js';
 import { renderAdmin } from './pages/admin.js';
 
 export function setHeader({ title, back }) {
@@ -20,6 +21,7 @@ route('/', renderHome);
 route('/item/:id', renderItemDetail);
 route('/learn/:id/:section', renderLearn);
 route('/practice/:id/:section', renderPractice);
+route('/practice-silent/:id/:section', renderPracticeSilent);
 route('/admin', renderAdmin);
 
 startRouter();
