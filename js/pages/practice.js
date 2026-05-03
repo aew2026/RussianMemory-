@@ -69,7 +69,8 @@ function startPractice({ id, section, lines, sectionName, startLine, track }) {
   let lineIndex = startLine;
   let recognizer = null;
   let listening = false;
-  let lineRevealed = new Set(); // word indices within current line already revealed green
+  let lineRevealed = new Set(); // word indices in current line already shown green
+  let advancing = false;        // true while animating line transition
 
   const page = document.getElementById('page');
   page.innerHTML = `
@@ -86,7 +87,6 @@ function startPractice({ id, section, lines, sectionName, startLine, track }) {
       <div id="feedback-msg" class="feedback-msg"></div>
     </div>`;
 
-  // Returns the global word index of the first word on line li
   function lineStart(li) {
     let n = 0;
     for (let i = 0; i < li; i++) n += lines[i].split(/\s+/).filter(Boolean).length;
@@ -112,27 +112,37 @@ function startPractice({ id, section, lines, sectionName, startLine, track }) {
     el.classList.add(missed ? 'revealed-missed' : 'revealed');
   }
 
-  // Match spoken text against a line, returning bool[] of which words matched
+  // LCS alignment: returns bool[] of which expected words were matched
   function matchAgainstLine(text, li) {
-    const lineWords = lines[li].split(/\s+/).filter(Boolean);
+    const expected = lines[li].split(/\s+/).filter(Boolean);
     const spoken = normalize(text).split(/\s+/).filter(Boolean);
-    const matched = new Array(lineWords.length).fill(false);
-    let si = 0;
-    for (let ei = 0; ei < lineWords.length && si < spoken.length; ) {
-      if (wordMatches(spoken[si], lineWords[ei])) {
-        matched[ei] = true;
-        si++;
-        ei++;
+    const m = spoken.length, n = expected.length;
+    if (!m || !n) return new Array(n).fill(false);
+
+    const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+    for (let i = 1; i <= m; i++)
+      for (let j = 1; j <= n; j++)
+        dp[i][j] = wordMatches(spoken[i - 1], expected[j - 1])
+          ? dp[i - 1][j - 1] + 1
+          : Math.max(dp[i - 1][j], dp[i][j - 1]);
+
+    const matched = new Array(n).fill(false);
+    let i = m, j = n;
+    while (i > 0 && j > 0) {
+      if (wordMatches(spoken[i - 1], expected[j - 1])) {
+        matched[j - 1] = true;
+        i--; j--;
+      } else if (dp[i - 1][j] >= dp[i][j - 1]) {
+        i--;
       } else {
-        si++;
+        j--;
       }
     }
     return matched;
   }
 
-  // Reveal matched words green immediately (used on interim results)
   function applyMatches(text) {
-    if (!text.trim() || !/[\u0400-\u04FF]/.test(text) || lineIndex >= lines.length) return;
+    if (!text.trim() || !/[\u0400-\u04FF]/.test(text) || lineIndex >= lines.length || advancing) return;
     const matched = matchAgainstLine(text, lineIndex);
     const ls = lineStart(lineIndex);
     matched.forEach((m, wi) => {
@@ -141,32 +151,40 @@ function startPractice({ id, section, lines, sectionName, startLine, track }) {
         lineRevealed.add(wi);
       }
     });
+    // All words matched — advance immediately without waiting for a pause
+    const wordCount = lines[lineIndex].split(/\s+/).filter(Boolean).length;
+    if (lineRevealed.size >= wordCount) advanceLine(false);
   }
 
-  // Called when an utterance ends: reveal matched green, unmatched red, advance line
+  function advanceLine(hasMissed) {
+    if (advancing || lineIndex >= lines.length) return;
+    advancing = true;
+    const delay = hasMissed ? 500 : 250;
+    setTimeout(() => {
+      lineRevealed = new Set();
+      lineIndex++;
+      advancing = false;
+      if (track) saveProgress(id, section, 'practice', lineIndex, lines.length);
+      document.getElementById('progress-bar').style.width = `${(lineIndex / lines.length) * 100}%`;
+      document.querySelectorAll('.practice-line').forEach((el, li) => {
+        el.classList.toggle('current-line', li === lineIndex);
+      });
+      if (lineIndex >= lines.length) { stopListening(); showComplete(); }
+    }, delay);
+  }
+
+  // Called at end of an utterance: reveal green + red, then move to next line
   function finalizeLine(text) {
-    if (lineIndex >= lines.length) return;
+    if (advancing || lineIndex >= lines.length) return;
     if (text) applyMatches(text);
 
-    const lineWords = lines[lineIndex].split(/\s+/).filter(Boolean);
+    const expected = lines[lineIndex].split(/\s+/).filter(Boolean);
     const ls = lineStart(lineIndex);
-    for (let wi = 0; wi < lineWords.length; wi++) {
-      if (!lineRevealed.has(wi)) revealWordEl(ls + wi, true);
+    let hasMissed = false;
+    for (let wi = 0; wi < expected.length; wi++) {
+      if (!lineRevealed.has(wi)) { revealWordEl(ls + wi, true); hasMissed = true; }
     }
-
-    // Highlight current line marker
-    document.querySelectorAll('.practice-line').forEach((el, li) => {
-      el.classList.toggle('current-line', li === lineIndex + 1);
-    });
-
-    lineRevealed = new Set();
-    lineIndex++;
-    if (track) saveProgress(id, section, 'practice', lineIndex, lines.length);
-    document.getElementById('progress-bar').style.width = `${(lineIndex / lines.length) * 100}%`;
-
-    if (lineIndex >= lines.length) {
-      setTimeout(() => { stopListening(); showComplete(); }, 600);
-    }
+    advanceLine(hasMissed);
   }
 
   function showHint() {
@@ -205,18 +223,14 @@ function startPractice({ id, section, lines, sectionName, startLine, track }) {
       onEnd() {
         recognizer = null;
         if (!listening) { stopListening(); return; }
-        // iOS kills auto-restart after a few cycles — session ends instantly with no result
         if (!gotResult && Date.now() - startedAt < 600) {
           stopListening();
           showFeedback('Tap mic to continue', 'info');
           return;
         }
-        if (lastFinal) {
-          finalizeLine(lastFinal);
-          setTimeout(spawnRec, 800); // wait for line advance animation
-        } else {
-          setTimeout(spawnRec, 150);
-        }
+        if (lastFinal && !advancing) finalizeLine(lastFinal);
+        const restartDelay = advancing ? 600 : 150;
+        setTimeout(spawnRec, restartDelay);
       }
     });
     if (!recognizer) { showFeedback('Speech recognition not supported', 'warn'); listening = false; return; }
@@ -257,6 +271,6 @@ function startPractice({ id, section, lines, sectionName, startLine, track }) {
   document.getElementById('btn-hint').addEventListener('click', showHint);
   document.getElementById('btn-skip').addEventListener('click', () => {
     finalizeLine('');
-    if (listening) setTimeout(spawnRec, 800);
+    if (listening) setTimeout(spawnRec, 600);
   });
 }
